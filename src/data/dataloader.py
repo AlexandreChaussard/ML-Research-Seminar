@@ -4,6 +4,8 @@ Data loader for all datasets
 
 from torchvision import datasets, transforms
 import torch
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def fetch_mnist_loader(
@@ -11,10 +13,15 @@ def fetch_mnist_loader(
         n_samples_test=512,
         batch_size=256,
         path_to_data="."
-) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, tuple]:
-
-    mnist_trainset = datasets.MNIST(f'{path_to_data}', train=True, download=True, transform=transforms.ToTensor())
-    mnist_testset = datasets.MNIST(f'{path_to_data}', train=False, download=True, transform=transforms.ToTensor())
+):
+    transform_pipeline = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ]
+    )
+    mnist_trainset = datasets.MNIST(f'{path_to_data}', train=True, download=True, transform=transform_pipeline)
+    mnist_testset = datasets.MNIST(f'{path_to_data}', train=False, download=True, transform=transform_pipeline)
 
     # create data loader with said dataset size
     mnist_trainset_reduced = torch.utils.data.random_split(
@@ -41,7 +48,7 @@ def fetch_cifar_loader(
         n_samples_test=512,
         batch_size=256,
         path_to_data="."
-) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, tuple]:
+):
 
     mnist_trainset = datasets.CIFAR10(f'{path_to_data}', train=True, download=True, transform=transforms.ToTensor())
     mnist_testset = datasets.CIFAR10(f'{path_to_data}', train=False, download=True, transform=transforms.ToTensor())
