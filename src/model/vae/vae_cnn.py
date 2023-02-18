@@ -22,6 +22,9 @@ class VAE_Encoder(torch.nn.Module):
                         channels_size[i], channels_size[i + 1], kernel_size=strides[i]
                     )
                 )
+                self.conv_net.append(
+                    nn.BatchNorm2d(channels_size[i + 1])
+                )
                 # self.conv_net.append(nn.MaxPool2d(kernel_size=(2,2)))
                 self.conv_net.append(nn.ReLU())
             except:
@@ -63,7 +66,9 @@ class VAE_Decoder(torch.nn.Module):
         self.channels_size = channels_size
 
         self.linear_decoder = nn.Sequential(
-            nn.Linear(z_dim, 200), nn.ReLU(),
+            nn.Linear(z_dim, 200), 
+            # nn.BatchNorm1d(200),
+            nn.ReLU(),
             nn.Linear(200, num_features_before_fcnn), nn.ReLU()
         )
         self.final_2d_shape = final_2d_shape
@@ -75,11 +80,15 @@ class VAE_Decoder(torch.nn.Module):
                     channels_size[i], channels_size[i + 1], kernel_size=strides[i]
                 )
             )
+            self.conv_net.append(
+                nn.BatchNorm2d(channels_size[i + 1])
+            )
             # self.conv_net.append(nn.MaxUnpool2d(kernel_size=(2,2)))
             if i < len(channels_size) - 2:
                 self.conv_net.append(nn.ReLU())
             else:
-                self.conv_net.append(nn.Sigmoid())
+                # self.conv_net.append(nn.Sigmoid())
+                pass
 
         self.conv_net = nn.Sequential(*self.conv_net)
 
