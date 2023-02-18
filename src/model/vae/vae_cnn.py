@@ -8,7 +8,7 @@ import ipdb
 
 
 class VAE_Encoder(torch.nn.Module):
-    def __init__(self, channels_size, z_dim, input_dim, strides):
+    def __init__(self, channels_size, z_dim, input_dim, strides,dropout=0.3):
         super(VAE_Encoder, self).__init__()
 
         init_channels = input_dim[0]
@@ -24,6 +24,9 @@ class VAE_Encoder(torch.nn.Module):
                 )
                 self.conv_net.append(
                     nn.BatchNorm2d(channels_size[i + 1])
+                )
+                self.conv_net.append(
+                    nn.Dropout(dropout)
                 )
                 # self.conv_net.append(nn.MaxPool2d(kernel_size=(2,2)))
                 self.conv_net.append(nn.ReLU())
@@ -58,6 +61,7 @@ class VAE_Decoder(torch.nn.Module):
         strides,
         num_features_before_fcnn,
         final_2d_shape,
+        dropout = 0.3
     ):
         super(VAE_Decoder, self).__init__()
 
@@ -83,12 +87,15 @@ class VAE_Decoder(torch.nn.Module):
             self.conv_net.append(
                 nn.BatchNorm2d(channels_size[i + 1])
             )
+            self.conv_net.append(
+                nn.Dropout(dropout)
+            )
             # self.conv_net.append(nn.MaxUnpool2d(kernel_size=(2,2)))
             if i < len(channels_size) - 2:
                 self.conv_net.append(nn.ReLU())
             else:
-                # self.conv_net.append(nn.Sigmoid())
-                pass
+                self.conv_net.append(nn.Sigmoid())
+                # pass
 
         self.conv_net = nn.Sequential(*self.conv_net)
 
@@ -112,14 +119,15 @@ class VAE(torch.nn.Module):
         conv_2d_channels_decoder,
         z_dim,
         input_dim,
-        strides
+        strides,
+        dropout=0.3
     ):
         super(VAE, self).__init__()
 
         self.z_dim = z_dim
 
         self.encoder = VAE_Encoder(
-            conv_2d_channels_encoder, z_dim, input_dim, strides
+            conv_2d_channels_encoder, z_dim, input_dim, strides,dropout
         )
         self.num_before_fcnn = self.encoder.num_features_before_fcnn
         self.final_2d_shape = self.encoder.final_2d_shape
@@ -130,7 +138,8 @@ class VAE(torch.nn.Module):
             input_dim,
             strides,
             self.num_before_fcnn,
-            self.final_2d_shape
+            self.final_2d_shape,
+            dropout
         )
 
     def forward(self, x):
@@ -157,15 +166,15 @@ class VAE_CNN:
     ):
         self.model = model
 
-    def loss_function(self, x, y, mu, log_var,device):
+    def loss_function(self, x, x_reconstructed, mu, log_var,device):
         batch_size = x.shape[0]
         reconstruction_error = F.binary_cross_entropy(
-            y.view([batch_size, -1]), x.view([batch_size, -1]), reduction="sum"
+            x_reconstructed.view([batch_size, -1]), x.view([batch_size, -1]), reduction="sum"
         )
-        # reconstruction_error = ((y-x)**2).mean() 
+        # reconstruction_error = nn.BCELoss(reduction='sum')(x_reconstructed, x) / batch_size
         reconstruction_error = reconstruction_error.to(device)
         
-        KLD = 0.5 * torch.sum(mu**2 + torch.exp(log_var) - 1 - log_var)
+        KLD = 0.5 * (mu**2 + torch.exp(log_var) - 1 - log_var).sum()
         KLD = KLD.to(device)
         return reconstruction_error + KLD
 
@@ -181,15 +190,18 @@ class VAE_CNN:
 
         for epoch in range(n_epochs):
             train_loss = 0
+            data_count = 0
             for batch_idx, (data, _) in enumerate(data_train_loader):
+                data_count +=data.shape[0]
                 optimizer.zero_grad()
 
                 data = data.to(device)
-                y, z_mu, z_log_var = self.model(data)
-                y = y.to(device)
+                # ipdb.set_trace()
+                x_reconstructed, z_mu, z_log_var = self.model(data)
+                x_reconstructed = x_reconstructed.to(device)
                 z_mu = z_mu.to(device)
                 z_log_var = z_log_var.to(device)
-                loss_vae = self.loss_function(data, y, z_mu, z_log_var,device)
+                loss_vae = self.loss_function(data,x_reconstructed, z_mu, z_log_var,device)
                 loss_vae.backward()
                 train_loss += loss_vae.item()
                 optimizer.step()
@@ -199,6 +211,8 @@ class VAE_CNN:
                     epoch, train_loss / len(data_train_loader.dataset)
                 )
             )
+            if epoch==0:
+                print(data_count)
     
     def generate_data(self, n_data=5):
         epsilon = torch.randn(n_data, 1, self.model.z_dim).to(self.device)
