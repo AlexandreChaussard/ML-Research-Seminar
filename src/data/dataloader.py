@@ -17,7 +17,7 @@ def fetch_mnist_loader(
     transform_pipeline = transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ]
     )
     mnist_trainset = datasets.MNIST(f'{path_to_data}', train=True, download=True, transform=transform_pipeline)
@@ -44,14 +44,19 @@ def fetch_mnist_loader(
     return mnist_train_loader, mnist_test_loader, img_shape
 
 def fetch_cifar_loader(
-        n_samples_train=1000,
+        n_samples_train=40000,
         n_samples_test=512,
         batch_size=256,
         path_to_data="."
 ):
-
-    mnist_trainset = datasets.CIFAR10(f'{path_to_data}', train=True, download=True, transform=transforms.ToTensor())
-    mnist_testset = datasets.CIFAR10(f'{path_to_data}', train=False, download=True, transform=transforms.ToTensor())
+    transform_pipeline = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ]
+    )
+    mnist_trainset = datasets.CIFAR10(f'{path_to_data}', train=True, download=True, transform=transform_pipeline)
+    mnist_testset = datasets.CIFAR10(f'{path_to_data}', train=False, download=True, transform=transform_pipeline)
 
     # create data loader with said dataset size
     mnist_trainset_reduced = torch.utils.data.random_split(

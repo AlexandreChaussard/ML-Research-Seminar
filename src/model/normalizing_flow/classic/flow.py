@@ -32,7 +32,6 @@ class Flow_Encoder(torch.nn.Module):
         h = self.net(x)
         return self.mu_net(h), self.sigma_net(h)
 
-
 class Flow_Decoder(torch.nn.Module):
     def __init__(self, hidden_sizes, z_dim, n_channels, n_rows, n_cols):
         super(Flow_Decoder, self).__init__()

@@ -168,15 +168,16 @@ class VAE_CNN:
 
     def loss_function(self, x, x_reconstructed, mu, log_var,device):
         batch_size = x.shape[0]
-        reconstruction_error = F.binary_cross_entropy(
-            x_reconstructed.view([batch_size, -1]), x.view([batch_size, -1]), reduction="sum"
-        )
+        # reconstruction_error = F.binary_cross_entropy(
+        #     x_reconstructed.view([batch_size, -1]), x.view([batch_size, -1]), reduction="sum"
+        # )
         # reconstruction_error = nn.BCELoss(reduction='sum')(x_reconstructed, x) / batch_size
+        reconstruction_error  = torch.mean((x-x_reconstructed)**2)
         reconstruction_error = reconstruction_error.to(device)
         
-        KLD = 0.5 * (mu**2 + torch.exp(log_var) - 1 - log_var).sum()
+        KLD = 0.5 * (mu**2 + torch.exp(log_var) - 1 - log_var).mean()
         KLD = KLD.to(device)
-        return reconstruction_error + KLD
+        return -reconstruction_error + KLD
 
     def train_vae(self, learning_rate, data_train_loader,n_epochs):
 

@@ -9,10 +9,10 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 # %autoreload 2
 z_dim = 200
-conv_2d_channels = [32,64,128,256]
-lr = 0.001
+conv_2d_channels = [32,64,64,32]
+lr = 0.0005
 dropout = 0
-n_epoch = 300
+n_epoch = 600
 strides = [(4,4),(4,4),(4,4),(4,4)]
 input_dim = (3,32,32)
 inverse_conv2d_channels = conv_2d_channels[::-1][1:] + [input_dim[0]]
@@ -43,7 +43,7 @@ if __name__=="__main__":
     )
     optimizer = torch.optim.Adam(vae_full.parameters(), lr=lr)
     mnist_train_loader, mnist_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_loader(
-    n_samples_train=512*4,
+    n_samples_train=512*3,
     n_samples_test=1000,
     batch_size=512,
     path_to_data="/src/data/"
