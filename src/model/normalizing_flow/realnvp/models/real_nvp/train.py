@@ -1,7 +1,6 @@
 """Train Real NVP on CIFAR-10.
 Train script adapted from: https://github.com/kuangliu/pytorch-cifar/
 """
-import argparse
 import os
 import torch
 import torch.optim as optim
@@ -11,12 +10,13 @@ import torchvision
 import torchvision.transforms as transforms
 import src.utils.realnvp as util
 
-from src.model.normalizing_flow.realnvp.models import RealNVP, RealNVPLoss
+from src.model.normalizing_flow.realnvp import RealNVP
+from src.model.normalizing_flow.realnvp.models.real_nvp.real_nvp_loss import RealNVPLoss
 from tqdm import tqdm
 
 
-def main(args):
-    device = 'cuda' if torch.cuda.is_available() and len(args.gpu_ids) > 0 else 'cpu'
+def main(n_epochs, batch_size, learning_rate, weight_decay, max_grad_norm, n_samples):
+    device = 'cpu'
     start_epoch = 0
 
     # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
@@ -30,56 +30,40 @@ def main(args):
     ])
 
     trainset = torchvision.datasets.CIFAR10(root='data', train=True, download=True, transform=transform_train)
-    trainloader = data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    trainloader = data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=1)
 
     testset = torchvision.datasets.CIFAR10(root='data', train=False, download=True, transform=transform_test)
-    testloader = data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    testloader = data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=1)
 
     # Model
     print('Building model..')
     net = RealNVP(num_scales=2, in_channels=3, mid_channels=64, num_blocks=8)
     net = net.to(device)
-    if device == 'cuda':
-        net = torch.nn.DataParallel(net, args.gpu_ids)
-        cudnn.benchmark = args.benchmark
-
-    if args.resume:
-        # Load checkpoint.
-        print('Resuming from checkpoint at ckpts/best.pth.tar...')
-        assert os.path.isdir('ckpts'), 'Error: no checkpoint directory found!'
-        checkpoint = torch.load('ckpts/best.pth.tar')
-        net.load_state_dict(checkpoint['net'])
-        global best_loss
-        best_loss = checkpoint['test_loss']
-        start_epoch = checkpoint['epoch']
 
     loss_fn = RealNVPLoss()
-    param_groups = util.get_param_groups(net, args.weight_decay, norm_suffix='weight_g')
-    optimizer = optim.Adam(param_groups, lr=args.lr)
+    param_groups = util.get_param_groups(net, weight_decay, norm_suffix='weight_g')
+    optimizer = optim.Adam(param_groups, lr=learning_rate)
 
-    for epoch in range(start_epoch, start_epoch + args.num_epochs):
-        train(epoch, net, trainloader, device, optimizer, loss_fn, args.max_grad_norm)
-        test(epoch, net, testloader, device, loss_fn, args.num_samples)
+    for epoch in range(start_epoch, start_epoch + n_epochs):
+        train(epoch, net, trainloader, device, optimizer, loss_fn, max_grad_norm)
+        main_test(epoch, net, testloader, device, loss_fn, n_samples)
 
 
 def train(epoch, net, trainloader, device, optimizer, loss_fn, max_grad_norm):
     print('\nEpoch: %d' % epoch)
     net.train()
-    loss_meter = util.AverageMeter()
-    with tqdm(total=len(trainloader.dataset)) as progress_bar:
-        for x, _ in trainloader:
-            x = x.to(device)
-            optimizer.zero_grad()
-            z, sldj = net(x, reverse=False)
-            loss = loss_fn(z, sldj)
-            loss_meter.update(loss.item(), x.size(0))
-            loss.backward()
-            util.clip_grad_norm(optimizer, max_grad_norm)
-            optimizer.step()
+    total_loss = 0
+    for x, _ in trainloader:
+        x = x.to(device)
+        optimizer.zero_grad()
+        z, sldj = net(x, reverse=False)
+        loss = loss_fn(z, sldj)
+        total_loss += loss.item()
+        loss.backward()
+        util.clip_grad_norm(optimizer, max_grad_norm)
+        optimizer.step()
 
-            progress_bar.set_postfix(loss=loss_meter.avg,
-                                     bpd=util.bits_per_dim(x, loss_meter.avg))
-            progress_bar.update(x.size(0))
+    print("    * Loss:", total_loss)
 
 
 def sample(net, batch_size, device):
@@ -96,7 +80,7 @@ def sample(net, batch_size, device):
     return x
 
 
-def test(epoch, net, testloader, device, loss_fn, num_samples):
+def main_test(epoch, net, testloader, device, loss_fn, num_samples):
     global best_loss
     net.eval()
     loss_meter = util.AverageMeter()
@@ -128,3 +112,13 @@ def test(epoch, net, testloader, device, loss_fn, num_samples):
     os.makedirs('samples', exist_ok=True)
     images_concat = torchvision.utils.make_grid(images, nrow=int(num_samples ** 0.5), padding=2, pad_value=255)
     torchvision.utils.save_image(images_concat, 'samples/epoch_{}.png'.format(epoch))
+
+
+main(
+    n_epochs=200,
+    batch_size=60,
+    learning_rate=0.1,
+    weight_decay=10e-5,
+    max_grad_norm=10000,
+    n_samples=5
+)

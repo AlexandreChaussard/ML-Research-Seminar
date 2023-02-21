@@ -5,6 +5,9 @@ import torch.nn.functional as F
 from src.model.normalizing_flow.realnvp.models.real_nvp.coupling_layer import CouplingLayer, MaskType
 from src.utils.realnvp import squeeze_2x2
 
+from src.model.normalizing_flow.realnvp.models.real_nvp.real_nvp_loss import RealNVPLoss
+import src.utils.realnvp as util
+
 
 class RealNVP(nn.Module):
     """RealNVP Model
@@ -21,6 +24,7 @@ class RealNVP(nn.Module):
         num_blocks (int): Number of residual blocks in the s and t network of
         `Coupling` layers.
     """
+
     def __init__(self, num_scales=2, in_channels=3, mid_channels=64, num_blocks=8):
         super(RealNVP, self).__init__()
         # Register data_constraint to pre-process images, not learnable
@@ -63,7 +67,7 @@ class RealNVP(nn.Module):
 
         # Save log-determinant of Jacobian of initial transform
         ldj = F.softplus(y) + F.softplus(-y) \
-            - F.softplus((1. - self.data_constraint).log() - self.data_constraint.log())
+              - F.softplus((1. - self.data_constraint).log() - self.data_constraint.log())
         sldj = ldj.view(ldj.size(0), -1).sum(-1)
 
         return y, sldj
@@ -83,6 +87,7 @@ class _RealNVP(nn.Module):
         num_blocks (int): Number of residual blocks in the s and t network of
             `Coupling` layers.
     """
+
     def __init__(self, scale_idx, num_scales, in_channels, mid_channels, num_blocks):
         super(_RealNVP, self).__init__()
 
@@ -142,3 +147,32 @@ class _RealNVP(nn.Module):
                 x = squeeze_2x2(x, reverse=True, alt_order=True)
 
         return x, sldj
+
+
+def train_realnvp(model: RealNVP, optimizer, data_train_loader, n_epoch, grad_clip_max):
+    loss_fn = RealNVPLoss()
+
+    for epoch in range(n_epoch):
+
+        train_loss = 0
+
+        for batch_idx, (data, _) in enumerate(data_train_loader):
+            optimizer.zero_grad()
+
+            z, sldj = model(data, reverse=False)
+            loss = loss_fn(z, sldj)
+            loss.backward()
+            util.clip_grad_norm(optimizer, max_norm=grad_clip_max)
+            train_loss += loss.item()
+
+            optimizer.step()
+
+        print('[*] Epoch [{}] - Average loss: {:.4f}'.format(epoch, train_loss / len(data_train_loader.dataset)))
+
+    return model
+
+
+def generate_data(model, n_data, n_channels, n_rows, n_cols):
+    z = torch.randn((n_data, n_channels, n_rows, n_cols), dtype=torch.float32)
+    x, _ = model(z, reverse=True)
+    return torch.sigmoid(x)
