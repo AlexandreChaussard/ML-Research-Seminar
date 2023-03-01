@@ -1,11 +1,13 @@
 import torch.optim as optim
 
 from src.data.dataloader import fetch_mnist_loader
-from src.model.normalizing_flow.glow.glow import Glow, train_glow, generate_data
+from src.model.normalizing_flow.glow.model import Glow, train_glow, generate_data
 from src.utils.viz import display_images
 
-# Load the MNIST dataset
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
+# Load the MNIST dataset
 data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_mnist_loader(
     n_samples_train=1000,
     n_samples_test=512,
@@ -14,33 +16,31 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_mnist_
 )
 
 # Create the model
-flow_steps = 2
-L = 2  # Dimension reduction parameter (reduce by 2 the size of the data at each value)
+n_flows = 32
+n_blocks = 3
 
 model = Glow(
-    image_shape=(n_channels, n_rows, n_cols),
-    hidden_channels=30,
-    K=flow_steps,
-    L=L,
-    actnorm_scale=100,
-    flow_permutation="invconv",
-    flow_coupling="affine",
-    LU_decomposed=True,
-    y_classes=None,
-    learn_top=True,
-    y_condition=False
+    in_channel=n_channels,
+    n_flow=n_flows,
+    n_block=n_blocks,
+    affine=True,
+    conv_lu=True
 )
-model.set_actnorm_init()
-model.eval()
 
 # Define the optimizer of the model
-optimizer = optim.Adamax(model.parameters(), lr=0.1, weight_decay=5e-5)
+optimizer = optim.Adam(model.parameters(), lr=10e-2)
 
 # Train the model
-n_epoch = 200
+n_epoch = 50
 model = train_glow(model, optimizer, data_train_loader, n_epoch=n_epoch)
 
 # Generate new samples
-generated_imgs = generate_data(model, temperature=0.7)
+generated_imgs = generate_data(
+    model,
+    n_data=5,
+    input_size=n_channels * n_rows * n_cols,
+    n_blocks=n_blocks
+)
+
 # Display the results
 display_images(generated_imgs)
