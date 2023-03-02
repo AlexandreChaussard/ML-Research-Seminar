@@ -12,6 +12,7 @@ Ce flow a montré une amélioration importante des résultats proposées auparav
 
 Objectif typique d'une architecture de flow:
 - MAP optimization
+
 Structure typique de flows normalisants:
 - z ~ p
 - x = g(z)  où g inversible: z = f(x)
