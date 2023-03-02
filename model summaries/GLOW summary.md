@@ -21,7 +21,9 @@ Donc on cherche des bons flows qui rendent le calcul simple, i.e. matrices trian
 # Architecture GLOW
 
 L'architecture GLOW s'appuit sur le bloc de flow suivant (voir fig.1):
+
 ![image](https://user-images.githubusercontent.com/78101027/222218110-a452093d-4a03-4b2a-96c8-9a9e0cf222c1.png)
+
 ![image](https://user-images.githubusercontent.com/78101027/222218229-8669cbff-dccb-4e90-bae2-b12cce3bbe5b.png)
 
 ## Actnorm
