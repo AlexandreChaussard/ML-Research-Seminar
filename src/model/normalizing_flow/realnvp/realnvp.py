@@ -968,7 +968,25 @@ def train_realnvp(flow, optimizer, data_loader, n_epoch):
 
     return flow
 
+
 def generate_data(flow: RealNVP, n_data):
     samples = flow.sample(n_data)
     samples, _ = utils.logit_transform(samples, reverse=True)
     return samples
+
+
+def restore_data(flow: RealNVP, clean_data_loader, alteration_function, alteration_args):
+    target_data_list = []
+    noisy_data_list = []
+    output_data_list = []
+
+    for batch_idx, (data, _) in enumerate(clean_data_loader):
+        target_data_list.append(data)
+
+        noisy_data = alteration_function(data, *alteration_args)
+        noisy_data_list.append(noisy_data)
+
+        output_data = flow.g(noisy_data)
+        output_data_list.append(output_data)
+
+    return target_data_list, noisy_data_list, output_data_list
