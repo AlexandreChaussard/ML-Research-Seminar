@@ -11,7 +11,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_loader(
     n_samples_train=1000,
     n_samples_test=512,
-    batch_size=256,
+    batch_size=14,
     path_to_data="../../src/data/"
 )
 
