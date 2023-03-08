@@ -3,6 +3,7 @@ import torch.optim as optim
 from src.data.dataloader import fetch_mnist_loader, fetch_cifar_loader
 from src.model.vae.vae import VAE, train_vae, generate_data
 from src.utils.viz import display_images
+from src.utils.utils import save_model
 
 # Load the MNIST dataset
 
@@ -34,3 +35,6 @@ model = train_vae(model, optimizer, data_train_loader, n_epoch=n_epoch)
 generated_imgs = generate_data(model, n_data=5)
 # Display the results
 display_images(generated_imgs)
+
+# save the run
+save_model(model, f"vae_generator_{n_epoch}_cifar10")

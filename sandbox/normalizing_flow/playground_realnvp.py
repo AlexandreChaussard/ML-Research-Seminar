@@ -5,6 +5,7 @@ import torch.distributions as distributions
 from src.data.dataloader import fetch_cifar_loader
 from src.model.normalizing_flow.realnvp import RealNVP, Hyperparameters, train_realnvp, generate_data
 from src.utils.viz import display_images
+from src.utils.utils import save_model
 
 # Load the MNIST dataset
 
@@ -50,3 +51,6 @@ model = train_realnvp(model, optimizer, data_train_loader, n_epoch=n_epoch)
 generated_imgs = generate_data(model, n_data=5)
 # Display the results
 display_images(generated_imgs)
+
+# Saving the model
+save_model(model, f"realnvp_{n_epoch}_cifar10")

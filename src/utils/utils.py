@@ -4,6 +4,9 @@ import torchvision.transforms as transforms
 import torch.distributions as distributions
 import torch.nn.functional as F
 import numpy as np
+import pickle
+import os
+
 
 def sampling(mu, log_var):
     # this function samples a Gaussian distribution,
@@ -32,6 +35,7 @@ def pytorch_add_square(x, square_size):
 
 def pytorch_gaussian_blur(x, kernel_size, sigma):
     return transforms.GaussianBlur(kernel_size=kernel_size, sigma=sigma)(x)
+
 
 def compute_same_pad(kernel_size, stride):
     if isinstance(kernel_size, int):
@@ -71,7 +75,7 @@ def split_feature(tensor, type="split"):
     """
     C = tensor.size(1)
     if type == "split":
-        return tensor[:, : C // 2, ...], tensor[:, C // 2 :, ...]
+        return tensor[:, : C // 2, ...], tensor[:, C // 2:, ...]
     elif type == "cross":
         return tensor[:, 0::2, ...], tensor[:, 1::2, ...]
 
@@ -120,3 +124,14 @@ def logit_transform(x, constraint=0.9, reverse=False):
                      - F.softplus(-pre_logit_scale)
 
         return logit_x, torch.sum(log_diag_J, dim=(1, 2, 3))
+
+
+def save_model(model, name, path="."):
+    file = open(os.path.join(path, "checkpoint_models", name + ".pkl"), 'wb')
+    pickle.dump(model, file)
+    file.close()
+
+
+def load_model(name, path="."):
+    file = open(os.path.join(path, "checkpoint_models", name + ".pkl"), 'rb')
+    return pickle.load(file)
