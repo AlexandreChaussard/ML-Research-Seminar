@@ -1,13 +1,13 @@
 import torch.optim as optim
 
-from src.data.dataloader import fetch_mnist_loader, fetch_cifar_loader
+from src.data.dataloader import fetch_mnist_loader, fetch_cifar_loader, fetch_celeba_loader
 from src.model.vae.vae import VAE, train_vae, generate_data
 from src.utils.viz import display_images
 from src.utils.utils import save_model
 
 # Load the MNIST dataset
 
-data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_loader(
+data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_celeba_loader(
     n_samples_train=1000,
     n_samples_test=512,
     batch_size=256,
@@ -37,4 +37,4 @@ generated_imgs = generate_data(model, n_data=5)
 display_images(generated_imgs)
 
 # save the run
-save_model(model, f"vae_generator_{n_epoch}_cifar10")
+# save_model(model, f"vae_generator_{n_epoch}_cifar10")
