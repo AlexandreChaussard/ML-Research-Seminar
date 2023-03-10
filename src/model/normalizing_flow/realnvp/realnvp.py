@@ -975,6 +975,45 @@ def generate_data(flow: RealNVP, n_data):
     return samples
 
 
+def train_inverse_realnvp(flow: RealNVP, optimizer, data_loader, n_epoch, alteration_function, alteration_args):
+    scale_reg = 5e-5  # L2 regularization strength
+
+    # Define the image loss
+    img_loss = torch.nn.MSELoss()
+
+    flow.train()
+    for epoch in range(n_epoch):
+
+        total_loss = 0
+        for batch_idx, data in enumerate(data_loader):
+            optimizer.zero_grad()
+
+            y, _ = data
+            x = y.clone()
+            # y is the observation, the dataset is pure but we add an alteration
+            y = alteration_function(y, *alteration_args)
+            # Turn the observation into the latent space (encoding)
+            z, _ = flow.f(x)
+            z = z.detach().requires_grad_(True)
+            x_hat = flow.g(z)
+
+            # Computing the loss
+            # residual = ((x_hat - y) ** 2).view(len(x_hat), -1).sum(dim=1).mean()
+            residual = img_loss(torch.flatten(x_hat, start_dim=1),
+                                torch.flatten(y, start_dim=1))
+            z_reg_loss = scale_reg * (z.norm(dim=1) ** 2).mean()
+            loss = residual
+            total_loss += loss.item()
+
+            loss.backward()
+            optimizer.step()
+
+        mean_loss = total_loss / batch_idx
+        print('[*] Epoch: {} - Average loss: {:.4f}'.format(epoch, mean_loss))
+
+    return flow
+
+
 def restore_data(flow: RealNVP, clean_data_loader, alteration_function, alteration_args):
     target_data_list = []
     noisy_data_list = []
@@ -986,7 +1025,9 @@ def restore_data(flow: RealNVP, clean_data_loader, alteration_function, alterati
         noisy_data = alteration_function(data, *alteration_args)
         noisy_data_list.append(noisy_data)
 
-        output_data = flow.g(noisy_data)
+        # Encode in latent space, then decode
+        z, _ = flow.f(noisy_data)
+        output_data = flow.g(z)
         output_data_list.append(output_data)
 
     return target_data_list, noisy_data_list, output_data_list

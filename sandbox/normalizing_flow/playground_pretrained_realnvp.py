@@ -17,7 +17,7 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_
 )
 
 # Create the model
-original_model = 35
+original_model = 135
 model = load_model(f"realnvp_{original_model}_cifar10")
 
 # Define the optimizer of the model

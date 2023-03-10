@@ -2,16 +2,16 @@ import torch.optim as optim
 import torch
 import torch.distributions as distributions
 
-from src.data.dataloader import fetch_cifar_loader
+from src.data.dataloader import fetch_cifar_loader, fetch_celeba_loader
 from src.model.normalizing_flow.realnvp import RealNVP, Hyperparameters, train_realnvp, generate_data
 from src.utils.viz import display_images
 from src.utils.utils import save_model
 
 # Load the MNIST dataset
 
-data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_loader(
-    n_samples_train=2000,
-    n_samples_test=2000,
+data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_celeba_loader(
+    n_samples_train=600,
+    n_samples_test=600,
     batch_size=50,
     path_to_data="../../src/data/"
 )
@@ -31,9 +31,11 @@ hps = Hyperparameters(
     affine=1
 )
 
+dataset = "celeba"
+
 # Create the model
 model = RealNVP(
-    dataset_name='cifar10',
+    dataset_name=dataset,
     input_size=n_rows,
     n_channels=n_channels,
     prior=prior,
@@ -53,4 +55,4 @@ generated_imgs = generate_data(model, n_data=5)
 display_images(generated_imgs)
 
 # Saving the model
-save_model(model, f"realnvp_{n_epoch}_cifar10")
+save_model(model, f"realnvp_{n_epoch}_{dataset}")

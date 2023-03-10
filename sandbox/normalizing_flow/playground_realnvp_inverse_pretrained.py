@@ -16,22 +16,11 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_
     path_to_data="../../src/data/"
 )
 
-model = utils.load_model("realnvp_135_cifar10")
+model = utils.load_model("realnvp_inverse_inpainting_pretrained135_2_cifar10")
 
-# Define the optimizer of the model
-optimizer = optim.Adamax(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-7)
-
-# Train the model
-
+# Alteration
 alteration_function = utils.pytorch_add_square
 alteration_args = [4]
-
-n_epoch = 10
-model = train_inverse_realnvp(
-    model, optimizer, data_train_loader, n_epoch=n_epoch,
-    alteration_function=alteration_function,
-    alteration_args=alteration_args
-)
 
 # Try restoring data from the test set with the same noise applied as for the training set
 target_data_list, noisy_data_list, restored_data_list = restore_data(
@@ -49,6 +38,3 @@ display_restoration_process(
     max_samples=5,
     permutation_shape=(1, 2, 0)
 )
-
-# Saving model
-utils.save_model(model, f"realnvp_inverse_inpainting_pretrained135_{n_epoch}_cifar10")
