@@ -3,7 +3,7 @@ import torch
 import torch.distributions as distributions
 
 from src.data.dataloader import fetch_cifar_loader
-from src.model.normalizing_flow.realnvp import train_inverse_realnvp, restore_data
+from src.model.normalizing_flow.realnvp import ConditionalRealNVP, train_inverse_realnvp, restore_data
 from src.utils.viz import display_restoration_process
 import src.utils.utils as utils
 
@@ -16,17 +16,20 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_
     path_to_data="../../src/data/"
 )
 
-model = utils.load_model("realnvp_135_cifar10")
+input_dim = n_channels * n_rows * n_cols
+
+flow = utils.load_model("realnvp_235_cifar10")
+input_size = n_rows * n_cols * n_channels
+model = ConditionalRealNVP(flow, input_size)
 
 # Define the optimizer of the model
 optimizer = optim.Adamax(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-7)
 
 # Train the model
-
 alteration_function = utils.pytorch_add_square
 alteration_args = [4]
 
-n_epoch = 10
+n_epoch = 20
 model = train_inverse_realnvp(
     model, optimizer, data_train_loader, n_epoch=n_epoch,
     alteration_function=alteration_function,
@@ -51,4 +54,4 @@ display_restoration_process(
 )
 
 # Saving model
-utils.save_model(model, f"realnvp_inverse_inpainting_pretrained135_{n_epoch}_cifar10")
+utils.save_model(model, f"2_realnvp_inverse_inpainting_pretrained235_{n_epoch}_cifar10")

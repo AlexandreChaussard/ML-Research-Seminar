@@ -1,12 +1,12 @@
 import torch.optim as optim
 
-from src.data.dataloader import fetch_mnist_loader
+from src.data.dataloader import fetch_mnist_loader, fetch_cifar_loader, fetch_celeba_loader
 from src.model.vae.vae import VAE, train_vae_inverse_lostdata, restore_lostdata_data
 from src.utils.viz import display_restoration_process
 
 # Load the MNIST dataset
 
-data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_mnist_loader(
+data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_celeba_loader(
     n_samples_train=1000,
     n_samples_test=1000,
     batch_size=256,
@@ -14,13 +14,13 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_mnist_
 )
 
 # Set the alteration parameters
-square_size = 7
+square_size = 6
 
 # Create the model
 model = VAE(
-    hidden_sizes_encoder=[512, 256],
-    hidden_sizes_decoder=[256, 512],
-    z_dim=20,
+    hidden_sizes_encoder=[512, 256, 256],
+    hidden_sizes_decoder=[256, 256, 512],
+    z_dim=120,
     n_rows=n_rows,
     n_cols=n_cols,
     n_channels=n_channels
@@ -30,7 +30,7 @@ model = VAE(
 optimizer = optim.Adam(model.parameters(), lr=10e-4)
 
 # Train the model
-n_epoch = 500
+n_epoch = 200
 model = train_vae_inverse_lostdata(
     model,
     optimizer,
@@ -51,5 +51,6 @@ display_restoration_process(
     target_data_list,
     noisy_data_list,
     restored_data_list,
-    max_samples=5
+    max_samples=5,
+    permutation_shape=(1, 2, 0)
 )

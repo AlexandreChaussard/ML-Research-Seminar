@@ -17,7 +17,7 @@ data_train_loader, data_test_loader, (n_channels, n_rows, n_cols) = fetch_cifar_
 )
 
 # Create the model
-original_model = 135
+original_model = 235
 model = load_model(f"realnvp_{original_model}_cifar10")
 
 # Define the optimizer of the model
@@ -25,7 +25,7 @@ optimizer = optim.Adamax(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e
 
 # Train the model
 n_epoch = 100
-model = train_realnvp(model, optimizer, data_train_loader, n_epoch=n_epoch)
+# model = train_realnvp(model, optimizer, data_train_loader, n_epoch=n_epoch)
 
 # Generate new samples
 generated_imgs = generate_data(model, n_data=5)

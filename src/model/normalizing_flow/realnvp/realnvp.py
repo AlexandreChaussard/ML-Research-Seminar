@@ -935,6 +935,73 @@ class Hyperparameters():
         self.affine = affine
 
 
+class ConditionalRealNVP(nn.Module):
+
+    def __init__(self, flow: RealNVP, input_size):
+        super(ConditionalRealNVP, self).__init__()
+
+        self.conditional_layer = nn.Sequential(
+            nn.Flatten(start_dim=1),
+            nn.Linear(input_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256)
+        )
+
+        self.estimate_mu = nn.Sequential(
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, input_size),
+            nn.ReLU(),
+            nn.Linear(input_size, input_size)
+        )
+
+        self.estimate_sigma = nn.Sequential(
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, input_size),
+            nn.ReLU(),
+            nn.Linear(input_size, input_size)
+        )
+
+        self.flow = flow
+
+    def forward(self, y):
+        z_obs, _ = self.flow.f(y)
+        C = self.flow.n_channels
+        H = W = self.flow.size
+
+        cond_prep = self.conditional_layer(y)
+        mu = self.estimate_mu(cond_prep).view(y.shape)
+        sigma = self.estimate_sigma(cond_prep).view(y.shape)
+
+        z = mu + sigma * self.flow.prior.sample((y.shape[0], C, H, W)).view(mu.shape)
+        z = z.view(y.shape)
+        z[torch.where(y != 0)] = z_obs[torch.where(y != 0)]
+        reconstructed = self.flow.g(z)
+        return utils.logit_transform(reconstructed, reverse=True)[0], z
+
+    def loss_fn(self, x, y, gamma=10e-5):
+        x_reconstruct, z = self.forward(y)
+        return ((x - x_reconstruct) ** 2).view(len(x), -1).sum(dim=1).mean() + gamma * (z.norm(dim=1)**2).mean()
+
+def conditional_sample(flow, observation):
+    y = observation
+    z_obs, _ = flow.f(y)
+    C = flow.n_channels
+    H = W = flow.size
+    z = flow.prior.sample((y.shape[0], C, H, W))
+    z[torch.where(y != 0)] = z_obs[torch.where(y != 0)]
+    reconstructed = flow.g(z)
+    return utils.logit_transform(reconstructed, reverse=True)[0], z
+
+
+def conditional_nll(flow, x, y, gamma=10e-5):
+    x_reconstruct, z = conditional_sample(flow, y)
+    return ((x - x_reconstruct) ** 2).view(len(x), -1).sum(dim=1).mean() + gamma * (z.norm(dim=1)**2).mean()
+
+
 def train_realnvp(flow, optimizer, data_loader, n_epoch):
     scale_reg = 5e-5  # L2 regularization strength
 
@@ -975,13 +1042,9 @@ def generate_data(flow: RealNVP, n_data):
     return samples
 
 
-def train_inverse_realnvp(flow: RealNVP, optimizer, data_loader, n_epoch, alteration_function, alteration_args):
-    scale_reg = 5e-5  # L2 regularization strength
-
-    # Define the image loss
-    img_loss = torch.nn.MSELoss()
-
-    flow.train()
+def train_inverse_realnvp(model: ConditionalRealNVP, optimizer, data_loader, n_epoch, alteration_function,
+                          alteration_args):
+    model.train()
     for epoch in range(n_epoch):
 
         total_loss = 0
@@ -992,17 +1055,8 @@ def train_inverse_realnvp(flow: RealNVP, optimizer, data_loader, n_epoch, altera
             x = y.clone()
             # y is the observation, the dataset is pure but we add an alteration
             y = alteration_function(y, *alteration_args)
-            # Turn the observation into the latent space (encoding)
-            z, _ = flow.f(x)
-            z = z.detach().requires_grad_(True)
-            x_hat = flow.g(z)
 
-            # Computing the loss
-            # residual = ((x_hat - y) ** 2).view(len(x_hat), -1).sum(dim=1).mean()
-            residual = img_loss(torch.flatten(x_hat, start_dim=1),
-                                torch.flatten(y, start_dim=1))
-            z_reg_loss = scale_reg * (z.norm(dim=1) ** 2).mean()
-            loss = residual
+            loss = model.loss_fn(x, y)
             total_loss += loss.item()
 
             loss.backward()
@@ -1011,10 +1065,10 @@ def train_inverse_realnvp(flow: RealNVP, optimizer, data_loader, n_epoch, altera
         mean_loss = total_loss / batch_idx
         print('[*] Epoch: {} - Average loss: {:.4f}'.format(epoch, mean_loss))
 
-    return flow
+    return model
 
 
-def restore_data(flow: RealNVP, clean_data_loader, alteration_function, alteration_args):
+def restore_data(model: ConditionalRealNVP, clean_data_loader, alteration_function, alteration_args):
     target_data_list = []
     noisy_data_list = []
     output_data_list = []
@@ -1025,9 +1079,8 @@ def restore_data(flow: RealNVP, clean_data_loader, alteration_function, alterati
         noisy_data = alteration_function(data, *alteration_args)
         noisy_data_list.append(noisy_data)
 
-        # Encode in latent space, then decode
-        z, _ = flow.f(noisy_data)
-        output_data = flow.g(z)
-        output_data_list.append(output_data)
+        reconstructed, _ = model(noisy_data)
+
+        output_data_list.append(reconstructed)
 
     return target_data_list, noisy_data_list, output_data_list
